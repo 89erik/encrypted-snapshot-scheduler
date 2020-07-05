@@ -1,10 +1,10 @@
-#!/bin/bash
+#!/bin/sh
 
 # Creates an encrypted tar of the given backup directory, 
 # if the directory has changed since the last backup.
 
-if [ -z "$1" ] || [ ! -f "$1" ]; then
-    echo First argument must be password file!
+if [ -z "$1" ]; then
+    echo First argument is the encryption password
     echo Second and third are content dir and backup dir,
     echo both optional and defaults to current directory.
     echo "Fourth argument is how many backups to keep (default 10)."
@@ -15,8 +15,6 @@ fi
 id=$(date +%F_%H%M)
 content_dir="$2"
 backup_dir="$3"
-: ${content_dir:=.}
-: ${backup_dir:=.}
 
 if [[ ! -d "$content_dir" ]]; then
     echo "content source dir is not a directory: $content_dir"
@@ -29,14 +27,17 @@ if [[ ! -d "$backup_dir" ]]; then
 fi
 
 keep=10
-if [[ $4 =~ ^[0-9]+$ ]] && [ $4 -gt 0 ] ; then
+if echo $4 | egrep -q '^[0-9]+$' && [ $4 -gt 0 ] ; then
     keep=$4
+    echo keeping $keep versions
 fi
-content_dir=$(readlink -e "$content_dir")
-backup_dir=$(readlink -e "$backup_dir")
+content_dir=$(readlink -f "$content_dir")
+backup_dir=$(readlink -f "$backup_dir")
 
-backup_file_basename="$(basename "$(readlink -e "$content_dir")")"
-backup_file_basename=${backup_file_basename// /_}
+backup_file_basename="$(readlink -f "$content_dir")"  # follow links
+backup_file_basename=${backup_file_basename#/}        # remove leading slash
+backup_file_basename=${backup_file_basename//\//-}    # slash to dash
+backup_file_basename=${backup_file_basename// /_}     # space to underscore
 backup_file="$backup_dir/${backup_file_basename}_${id}.tar.gpg"
 
 previous_hash="/tmp/$(echo ${content_dir//\//.} | cut -c 2-).previous_backup_hash"
@@ -70,11 +71,11 @@ if [ $? -eq 0 ]; then
     cleanup_and_exit 0
 fi
 
-echo Backing up \"$content_dir\" into \"$backup_file\" using password from \"$1\"
+echo Backing up \"$content_dir\" into \"$backup_file\"
 
 echo $content_dir $id >> "$content_dir/.backup_history.txt"
 
-tar cpf - "$content_dir" | gpg --batch --yes --passphrase-file "$1" --symmetric --cipher-algo aes256 -o "$backup_file"
+tar cpf - "$content_dir" | gpg --batch --yes --passphrase "$1" --symmetric --cipher-algo aes256 -o "$backup_file"
 rc=$?
 echo "Done. rc=$rc"
 
