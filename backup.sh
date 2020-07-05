@@ -40,8 +40,9 @@ backup_file_basename=${backup_file_basename//\//-}    # slash to dash
 backup_file_basename=${backup_file_basename// /_}     # space to underscore
 backup_file="$backup_dir/${backup_file_basename}_${id}.tar.gpg"
 
-previous_hash="/tmp/$(echo ${content_dir//\//.} | cut -c 2-).previous_backup_hash"
-current_hash="$content_dir/.latest_backup_hash"
+mkdir -p /backup_hashes/
+previous_hash="/backup_hashes/$backup_file_basename.previous_backup_hash"
+current_hash="/backup_hashes/$backup_file_basename.latest_backup_hash"
 
 #######################
 
@@ -49,11 +50,8 @@ function create_hash {
     echo Hashing...
     cd "$content_dir"
     mv "$current_hash" "$previous_hash" 2> /dev/null
-    touch .backup_history.txt
-    mv .backup_history.txt /tmp
     files=$(find "$content_dir" -type f -exec md5sum {} \; | sort -k 2)
     echo $files | md5sum > "$current_hash"
-    mv /tmp/.backup_history.txt .
     echo Done hashing
 }
 
@@ -72,8 +70,6 @@ if [ $? -eq 0 ]; then
 fi
 
 echo Backing up \"$content_dir\" into \"$backup_file\"
-
-echo $content_dir $id >> "$content_dir/.backup_history.txt"
 
 tar cpf - "$content_dir" | gpg --batch --yes --passphrase "$1" --symmetric --cipher-algo aes256 -o "$backup_file"
 rc=$?
