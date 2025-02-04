@@ -1,7 +1,7 @@
 FROM alpine:latest
 RUN apk --update-cache add tzdata gnupg
 
-COPY entry.sh backup_source_dirs.sh backup.sh /
+COPY entry.sh backup_source_dirs.sh backup.sh restore.sh /
 CMD /entry.sh
 
 ENV TZ=Europe/Oslo
